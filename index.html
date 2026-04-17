@@ -11,33 +11,41 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, query, addDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Menggunakan konfigurasi automatik dari persekitaran
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const apiKey = ""; // Kunci API akan dikendalikan oleh persekitaran
+        // --- BAGIAN YANG HARUS ANDA GANTI ---
+        // Buka Firebase Console > Project Settings > Cari "Firebase SDK snippet" > pilih "Config"
+        const firebaseConfig = {
+               apiKey: "AIzaSyDgQ4z7z1Ye9X1W8uo3pnn5QprfBKplODE",
+                authDomain: "voting-rimni.firebaseapp.com",
+                projectId: "voting-rimni",
+                storageBucket: "voting-rimni.firebasestorage.app",
+                messagingSenderId: "1092780008313",
+                appId: "1:1092780008313:web:4e29e1fa7f653b4fe585a8",
+                measurementId: "G-6JDL0CGJ4P"
+        };
+        // ------------------------------------
 
         // Inisialisasi Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'voting-rimni-v1';
+        const appId = 'voting-rimni-v1'; // Tetapkan ID aplikasi Anda di sini
 
         window.firebaseDB = db;
         window.firebaseAuth = auth;
         window.appId = appId;
         window.dbUtils = { doc, setDoc, getDoc, updateDoc, onSnapshot, collection, query, addDoc, increment };
 
-        // Logik Pengesahan (Auth) yang betul untuk persekitaran ini
+        // Logika Pengaktifan Akun Anonim (Untuk Pengguna Umum)
         const initAuth = async () => {
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // Di GitHub, kita gunakan login anonim agar database bisa diakses dengan aman
+                await signInAnonymously(auth);
+                console.log("Terhubung sebagai:", auth.currentUser.uid);
             } catch (error) {
-                console.error("Auth Initialization Error:", error);
+                console.error("Kesalahan Database:", error);
+                document.querySelector('#loading-overlay p').innerText = "Gagal terhubung. Pastikan Config Firebase sudah benar.";
             }
         };
 
@@ -120,9 +128,9 @@
         </div>
         <nav class="bg-white text-slate-600 shadow-inner">
             <div class="max-w-6xl mx-auto px-4 flex justify-center md:justify-start space-x-2 md:space-x-8 overflow-x-auto">
-                <button onclick="switchTab('informasi')" id="tab-informasi" class="nav-active px-4 py-3 whitespace-nowrap focus:outline-none transition-colors">&#x2139;&#xFE0F; Info</button>
-                <button onclick="switchTab('bilik')" id="tab-bilik" class="px-4 py-3 whitespace-nowrap focus:outline-none transition-colors hover:text-emerald-600">&#x1F5F3;&#xFE0F; Bilik Suara</button>
-                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-4 py-3 whitespace-nowrap focus:outline-none transition-colors hover:text-emerald-600">&#x1F4C8; Hasil</button>
+                <button onclick="switchTab('informasi')" id="tab-informasi" class="nav-active px-4 py-3 whitespace-nowrap focus:outline-none transition-colors">&#x2139;&#xFE0F; Informasi</button>
+                <button onclick="switchTab('bilik')" id="tab-bilik" class="px-4 py-3 whitespace-nowrap focus:outline-none transition-colors hover:text-emerald-600">&#x1F5F3;&#xFE0F; Tempat Memilih</button>
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-4 py-3 whitespace-nowrap focus:outline-none transition-colors hover:text-emerald-600">&#x1F4C8; Hasil Suara</button>
             </div>
         </nav>
     </header>
@@ -148,14 +156,14 @@
                                 <span class="bg-emerald-100 text-emerald-800 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-3 shrink-0">1</span>
                                 <div>
                                     <strong class="block text-slate-800">LUBER JURDIL</strong>
-                                    <span class="text-slate-600 text-sm">Hasil tersimpan otomatis di database pusat.</span>
+                                    <span class="text-slate-600 text-sm">Hasil disimpan secara otomatis di database pusat.</span>
                                 </div>
                             </li>
                             <li class="flex items-start">
                                 <span class="bg-emerald-100 text-emerald-800 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-3 shrink-0">2</span>
                                 <div>
                                     <strong class="block text-slate-800">Verifikasi Ganda</strong>
-                                    <span class="text-slate-600 text-sm">Sistem mencatat identitas untuk mencegah pemilihan ganda.</span>
+                                    <span class="text-slate-600 text-sm">Sistem mencatat identitas untuk mencegah pemilihan berulang.</span>
                                 </div>
                             </li>
                         </ul>
@@ -166,13 +174,13 @@
                             <span class="text-2xl mr-2">&#x1F4CC;</span> Alur E-Voting
                         </h3>
                         <ul class="list-disc list-inside text-slate-700 space-y-2 ml-2">
-                            <li>Isi biodata valid di tab Bilik Suara.</li>
+                            <li>Isi data diri yang benar di menu Tempat Memilih.</li>
                             <li>Pilih salah satu dari 4 kandidat terbaik.</li>
-                            <li>Klik "Kirim Suara" untuk menyimpan ke cloud.</li>
-                            <li>Lihat hasil sementara di tab Hasil.</li>
+                            <li>Klik "Kirim Suara" untuk menyimpan ke database.</li>
+                            <li>Lihat hasil sementara di menu Hasil Suara.</li>
                         </ul>
                         <button onclick="switchTab('bilik')" class="mt-6 w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                            Mulai Memilih &#x27A1;&#xFE0F;
+                            Mulai Memilih Sekarang &#x27A1;&#xFE0F;
                         </button>
                     </div>
                 </div>
@@ -183,7 +191,7 @@
         <section id="sec-bilik" class="fade-in hidden">
             <div id="form-container" class="bg-white rounded-xl shadow-sm p-6 md:p-10 border border-slate-200">
                 <div class="mb-8">
-                    <h2 class="text-2xl font-bold text-blue-900 mb-2">Bilik Suara Digital</h2>
+                    <h2 class="text-2xl font-bold text-blue-900 mb-2">Pemberian Suara Digital</h2>
                     <p class="text-slate-600">Data Anda akan disimpan dengan aman di database kami.</p>
                 </div>
 
@@ -196,11 +204,11 @@
                                 <input type="text" id="nama" required class="w-full px-4 py-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-emerald-500">
                             </div>
                             <div>
-                                <label for="whatsapp" class="block text-sm font-medium text-slate-700 mb-1">WhatsApp <span class="text-red-500">*</span></label>
+                                <label for="whatsapp" class="block text-sm font-medium text-slate-700 mb-1">Nomor WhatsApp <span class="text-red-500">*</span></label>
                                 <input type="tel" id="whatsapp" required placeholder="08xxxxxxxxxx" class="w-full px-4 py-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-emerald-500">
                             </div>
                             <div class="md:col-span-2">
-                                <label for="domisili" class="block text-sm font-medium text-slate-700 mb-1">Domisili RT <span class="text-red-500">*</span></label>
+                                <label for="domisili" class="block text-sm font-medium text-slate-700 mb-1">Wilayah RT <span class="text-red-500">*</span></label>
                                 <select id="domisili" required class="w-full px-4 py-2 border border-slate-300 rounded-md outline-none bg-white focus:ring-2 focus:ring-emerald-500">
                                     <option value="" disabled selected>-- Pilih Wilayah RT --</option>
                                     <option value="RT 01">RT 01</option>
@@ -216,18 +224,18 @@
                     <div class="mb-8">
                         <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Pilih Kandidat</h3>
                         <div class="grid md:grid-cols-2 gap-4" id="kandidat-options">
-                            <!-- Diisi via JS -->
+                            <!-- Diisi via JavaScript -->
                         </div>
                     </div>
 
                     <div class="mb-8">
-                        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Aspirasi (Opsional)</h3>
-                        <textarea id="aspirasi" rows="3" class="w-full px-4 py-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Harapan Anda untuk RIMNI ke depan..."></textarea>
+                        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Aspirasi & Harapan (Opsional)</h3>
+                        <textarea id="aspirasi" rows="3" class="w-full px-4 py-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Apa harapan Anda untuk RIMNI ke depannya?"></textarea>
                     </div>
 
                     <div class="flex justify-end">
                         <button type="submit" id="btn-submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-10 rounded-lg shadow-md transition-all flex items-center">
-                            Kirim Suara Ke Database <span class="ml-2">&#x1F4E4;</span>
+                            Kirim Suara Anda <span class="ml-2">&#x1F4E4;</span>
                         </button>
                     </div>
                 </form>
@@ -236,9 +244,9 @@
             <div id="success-message" class="hidden bg-emerald-50 rounded-xl shadow-sm p-10 border border-emerald-200 text-center fade-in">
                 <div class="text-6xl mb-4">&#x2705;</div>
                 <h2 class="text-3xl font-bold text-emerald-800 mb-4">Terima Kasih!</h2>
-                <p class="text-lg text-emerald-700 mb-8">Data pilihan Anda telah aman tersimpan di database kami.</p>
+                <p class="text-lg text-emerald-700 mb-8">Data pilihan Anda telah berhasil tersimpan di sistem kami.</p>
                 <button onclick="switchTab('dashboard')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-lg">
-                    Lihat Hasil Real-time &#x1F4C8;
+                    Lihat Hasil Sementara &#x1F4C8;
                 </button>
             </div>
         </section>
@@ -247,8 +255,8 @@
         <section id="sec-dashboard" class="fade-in hidden">
             <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
-                    <h2 class="text-3xl font-bold text-blue-900">Hasil Real-time Cloud</h2>
-                    <p class="text-slate-600 mt-1">Data sinkron otomatis dari server database.</p>
+                    <h2 class="text-3xl font-bold text-blue-900">Hasil Suara Real-time</h2>
+                    <p class="text-slate-600 mt-1">Data diperbarui secara otomatis dari server.</p>
                 </div>
                 <div class="bg-blue-100 text-blue-800 px-4 py-2 rounded-full font-bold border border-blue-200">
                     Total Suara Masuk: <span id="total-suara-display">0</span>
@@ -264,24 +272,24 @@
                 </div>
 
                 <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 flex flex-col">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Distribusi Wilayah</h3>
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Penyebaran Wilayah</h3>
                     <div class="chart-container flex-grow">
                         <canvas id="doughnutChart"></canvas>
                     </div>
                 </div>
 
                 <div class="lg:col-span-3 bg-white rounded-xl shadow-sm p-6 border border-slate-200">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Aspirasi Terkini</h3>
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Aspirasi Terbaru</h3>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-200">
                             <thead class="bg-slate-50">
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Wilayah</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Pesan</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Pesan/Aspirasi</th>
                                 </tr>
                             </thead>
                             <tbody id="aspirasi-list" class="divide-y divide-slate-200">
-                                <!-- Diisi via JS -->
+                                <!-- Diisi via JavaScript -->
                             </tbody>
                         </table>
                     </div>
@@ -291,7 +299,7 @@
     </main>
 
     <footer class="bg-slate-800 text-slate-400 py-6 text-center text-xs mt-auto">
-        <p>&copy; 2026 RIMNI Nurul Ittihad - Didukung oleh Firebase Cloud Firestore</p>
+        <p>&copy; 2026 RIMNI Nurul Ittihad - Didukung oleh Teknologi Cloud Firestore</p>
     </footer>
 
     <script>
@@ -307,6 +315,7 @@
         let isFirebaseReady = false;
 
         const checkFirebase = setInterval(() => {
+            // Kita cek auth.currentUser karena signInAnonymously dipanggil di initAuth
             if (window.firebaseDB && window.dbUtils && window.firebaseAuth.currentUser) {
                 isFirebaseReady = true;
                 clearInterval(checkFirebase);
@@ -319,23 +328,20 @@
             const { firebaseDB, appId, dbUtils } = window;
             const { onSnapshot, doc, collection } = dbUtils;
 
-            // Memastikan user sudah login sebelum melakukan query
-            if (!window.firebaseAuth.currentUser) return;
-
-            // Listen Votes
+            // Memantau Ringkasan Suara
             const votesDoc = doc(firebaseDB, 'artifacts', appId, 'public', 'data', 'votes_summary');
             onSnapshot(votesDoc, (docSnap) => {
                 const data = docSnap.exists() ? docSnap.data() : {};
                 updateDashboard(data);
-            }, (err) => console.error("Listen Votes Err:", err));
+            }, (err) => console.error("Gagal memuat suara:", err));
 
-            // Listen Aspirations
+            // Memantau Aspirasi
             const aspCol = collection(firebaseDB, 'artifacts', appId, 'public', 'data', 'aspirations');
             onSnapshot(aspCol, (snap) => {
                 const asps = [];
                 snap.forEach(d => asps.push(d.data()));
                 renderAspirations(asps);
-            }, (err) => console.error("Listen Asp Err:", err));
+            }, (err) => console.error("Gagal memuat aspirasi:", err));
         }
 
         function updateDashboard(data) {
@@ -362,14 +368,14 @@
         async function submitVote(e) {
             e.preventDefault();
             
-            if (!window.firebaseAuth.currentUser) {
-                alert("Sila tunggu sehingga sambungan database stabil.");
+            if (!isFirebaseReady) {
+                alert("Mohon tunggu sebentar hingga sistem siap.");
                 return;
             }
 
             const btn = document.getElementById('btn-submit');
             btn.disabled = true;
-            btn.innerText = "Memproses...";
+            btn.innerText = "Mengirim...";
 
             const { firebaseDB, appId, dbUtils } = window;
             const { doc, setDoc, increment, collection, addDoc } = dbUtils;
@@ -380,9 +386,9 @@
             const candidateInput = document.querySelector('input[name="kandidat"]:checked');
             
             if (!candidateInput) {
-                alert("Sila pilih calon terlebih dahulu.");
+                alert("Silakan pilih salah satu kandidat.");
                 btn.disabled = false;
-                btn.innerText = "Kirim Suara Ke Database";
+                btn.innerText = "Kirim Suara Anda";
                 return;
             }
 
@@ -390,7 +396,7 @@
             const note = document.getElementById('aspirasi').value;
 
             try {
-                // Update Summary
+                // Perbarui Ringkasan (Firestore Rules harus mengizinkan tulis ke path ini)
                 const votesRef = doc(firebaseDB, 'artifacts', appId, 'public', 'data', 'votes_summary');
                 const updateObj = { candidates: {}, regions: {} };
                 updateObj.candidates[candidate] = increment(1);
@@ -398,7 +404,7 @@
                 
                 await setDoc(votesRef, updateObj, { merge: true });
 
-                // Add Aspiration if any
+                // Tambah Aspirasi jika diisi
                 if (note.trim()) {
                     await addDoc(collection(firebaseDB, 'artifacts', appId, 'public', 'data', 'aspirations'), {
                         wilayah: region,
@@ -407,21 +413,13 @@
                     });
                 }
 
-                // Simpan log pemilih (private)
-                const userId = window.firebaseAuth.currentUser.uid;
-                await setDoc(doc(firebaseDB, 'artifacts', appId, 'users', userId, 'my_vote'), {
-                    submitted: true,
-                    nama: name,
-                    at: Date.now()
-                });
-
                 document.getElementById('form-container').classList.add('hidden');
                 document.getElementById('success-message').classList.remove('hidden');
             } catch (err) {
-                console.error("Vote Error:", err);
-                alert("Gagal mengirim suara. Sila cuba lagi.");
+                console.error("Kesalahan saat memilih:", err);
+                alert("Maaf, gagal mengirim suara. Pastikan 'Firestore Rules' Anda sudah diatur ke public atau cek koneksi.");
                 btn.disabled = false;
-                btn.innerText = "Kirim Suara Ke Database";
+                btn.innerText = "Kirim Suara Anda";
             }
         }
 
@@ -461,7 +459,6 @@
                 plugins: { legend: { position: 'bottom' } }
             };
 
-            // Bar Chart
             const barCtx = document.getElementById('barChart').getContext('2d');
             const barData = candidates_info.map(c => counts[c.id]);
             
@@ -473,13 +470,12 @@
                     type: 'bar',
                     data: {
                         labels: candidates_info.map(c => c.name),
-                        datasets: [{ label: 'Suara', data: barData, backgroundColor: '#059669' }]
+                        datasets: [{ label: 'Jumlah Suara', data: barData, backgroundColor: '#059669' }]
                     },
                     options: chartConfig
                 });
             }
 
-            // Doughnut Chart
             const doghnutCtx = document.getElementById('doughnutChart').getContext('2d');
             const regionLabels = Object.keys(regions);
             const regionData = Object.values(regions);
