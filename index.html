@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Voting Remaja Islam Masjid Nurul Ittihad (RIMNI) 2026-2028</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, query, addDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // Menggunakan konfigurasi automatik dari persekitaran
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const apiKey = ""; // Kunci API akan dikendalikan oleh persekitaran
+
+        // Inisialisasi Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'voting-rimni-v1';
+
+        window.firebaseDB = db;
+        window.firebaseAuth = auth;
+        window.appId = appId;
+        window.dbUtils = { doc, setDoc, getDoc, updateDoc, onSnapshot, collection, query, addDoc, increment };
+
+        // Logik Pengesahan (Auth) yang betul untuk persekitaran ini
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth Initialization Error:", error);
+            }
+        };
+
+        initAuth();
+    </script>
+
+    <style>
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container { height: 350px; }
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f4; 
+        }
+        .nav-active {
+            border-bottom: 4px solid #059669;
+            color: #059669;
+            font-weight: bold;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .candidate-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .candidate-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-color: #059669;
+        }
+        .radio-custom:checked + div {
+            background-color: #ecfdf5;
+            border-color: #059669;
+            box-shadow: 0 0 0 2px #059669;
+        }
+        #loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <div id="loading-overlay">
+        <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mb-4"></div>
+            <p class="text-slate-600 font-medium">Menghubungkan ke Database...</p>
+        </div>
+    </div>
+
+    <header class="bg-blue-900 text-white shadow-md relative z-10">
+        <div class="max-w-6xl mx-auto px-4 py-6">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="text-center md:text-left mb-4 md:mb-0">
+                    <h1 class="text-2xl md:text-3xl font-bold tracking-tight">E-VOTING KETUA RIMNI</h1>
+                    <p class="text-blue-200 mt-1 text-sm md:text-base">Remaja Islam Masjid Nurul Ittihad Periode 2026-2028</p>
+                </div>
+                <div class="text-3xl text-emerald-400">
+                    &#x262A;&#xFE0F;
+                </div>
+            </div>
+        </div>
+        <nav class="bg-white text-slate-600 shadow-inner">
+            <div class="max-w-6xl mx-auto px-4 flex justify-center md:justify-start space-x-2 md:space-x-8 overflow-x-auto">
+                <button onclick="switchTab('informasi')" id="tab-informasi" class="nav-active px-4 py-3 whitespace-nowrap focus:outline-none transition-colors">&#x2139;&#xFE0F; Info</button>
+                <button onclick="switchTab('bilik')" id="tab-bilik" class="px-4 py-3 whitespace-nowrap focus:outline-none transition-colors hover:text-emerald-600">&#x1F5F3;&#xFE0F; Bilik Suara</button>
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-4 py-3 whitespace-nowrap focus:outline-none transition-colors hover:text-emerald-600">&#x1F4C8; Hasil</button>
+            </div>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-6xl mx-auto w-full px-4 py-8">
+        <!-- Section Informasi -->
+        <section id="sec-informasi" class="fade-in block">
+            <div class="bg-white rounded-xl shadow-sm p-6 md:p-10 border border-slate-200">
+                <div class="mb-8 border-b border-slate-100 pb-6">
+                    <h2 class="text-3xl font-bold text-blue-900 mb-4">Assalamu’alaikum Warahmatullahi Wabarakatuh,</h2>
+                    <p class="text-lg text-slate-700 leading-relaxed">
+                        Suara Anda adalah amanah yang akan menentukan arah dakwah dan kreativitas pemuda di lingkungan Masjid Nurul Ittihad. Kami menggunakan teknologi cloud untuk memastikan setiap suara tercatat dengan aman dan transparan.
+                    </p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="bg-slate-50 rounded-lg p-6 border border-slate-200">
+                        <h3 class="text-xl font-bold text-emerald-700 mb-4 flex items-center">
+                            <span class="text-2xl mr-2">&#x2696;&#xFE0F;</span> Prinsip Pemilihan
+                        </h3>
+                        <ul class="space-y-4">
+                            <li class="flex items-start">
+                                <span class="bg-emerald-100 text-emerald-800 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-3 shrink-0">1</span>
+                                <div>
+                                    <strong class="block text-slate-800">LUBER JURDIL</strong>
+                                    <span class="text-slate-600 text-sm">Hasil tersimpan otomatis di database pusat.</span>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="bg-emerald-100 text-emerald-800 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-3 shrink-0">2</span>
+                                <div>
+                                    <strong class="block text-slate-800">Verifikasi Ganda</strong>
+                                    <span class="text-slate-600 text-sm">Sistem mencatat identitas untuk mencegah pemilihan ganda.</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-blue-50 rounded-lg p-6 border border-blue-100">
+                        <h3 class="text-xl font-bold text-blue-900 mb-4 flex items-center">
+                            <span class="text-2xl mr-2">&#x1F4CC;</span> Alur E-Voting
+                        </h3>
+                        <ul class="list-disc list-inside text-slate-700 space-y-2 ml-2">
+                            <li>Isi biodata valid di tab Bilik Suara.</li>
+                            <li>Pilih salah satu dari 4 kandidat terbaik.</li>
+                            <li>Klik "Kirim Suara" untuk menyimpan ke cloud.</li>
+                            <li>Lihat hasil sementara di tab Hasil.</li>
+                        </ul>
+                        <button onclick="switchTab('bilik')" class="mt-6 w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                            Mulai Memilih &#x27A1;&#xFE0F;
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section Bilik Suara -->
+        <section id="sec-bilik" class="fade-in hidden">
+            <div id="form-container" class="bg-white rounded-xl shadow-sm p-6 md:p-10 border border-slate-200">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-blue-900 mb-2">Bilik Suara Digital</h2>
+                    <p class="text-slate-600">Data Anda akan disimpan dengan aman di database kami.</p>
+                </div>
+
+                <form id="votingForm" onsubmit="submitVote(event)">
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200 mb-8">
+                        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Identitas Pemilih</h3>
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="nama" class="block text-sm font-medium text-slate-700 mb-1">Nama Lengkap <span class="text-red-500">*</span></label>
+                                <input type="text" id="nama" required class="w-full px-4 py-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            <div>
+                                <label for="whatsapp" class="block text-sm font-medium text-slate-700 mb-1">WhatsApp <span class="text-red-500">*</span></label>
+                                <input type="tel" id="whatsapp" required placeholder="08xxxxxxxxxx" class="w-full px-4 py-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="domisili" class="block text-sm font-medium text-slate-700 mb-1">Domisili RT <span class="text-red-500">*</span></label>
+                                <select id="domisili" required class="w-full px-4 py-2 border border-slate-300 rounded-md outline-none bg-white focus:ring-2 focus:ring-emerald-500">
+                                    <option value="" disabled selected>-- Pilih Wilayah RT --</option>
+                                    <option value="RT 01">RT 01</option>
+                                    <option value="RT 02">RT 02</option>
+                                    <option value="RT 03">RT 03</option>
+                                    <option value="RT 04">RT 04</option>
+                                    <option value="Luar Lingkungan">Luar Lingkungan</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-8">
+                        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Pilih Kandidat</h3>
+                        <div class="grid md:grid-cols-2 gap-4" id="kandidat-options">
+                            <!-- Diisi via JS -->
+                        </div>
+                    </div>
+
+                    <div class="mb-8">
+                        <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Aspirasi (Opsional)</h3>
+                        <textarea id="aspirasi" rows="3" class="w-full px-4 py-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Harapan Anda untuk RIMNI ke depan..."></textarea>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit" id="btn-submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-10 rounded-lg shadow-md transition-all flex items-center">
+                            Kirim Suara Ke Database <span class="ml-2">&#x1F4E4;</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="success-message" class="hidden bg-emerald-50 rounded-xl shadow-sm p-10 border border-emerald-200 text-center fade-in">
+                <div class="text-6xl mb-4">&#x2705;</div>
+                <h2 class="text-3xl font-bold text-emerald-800 mb-4">Terima Kasih!</h2>
+                <p class="text-lg text-emerald-700 mb-8">Data pilihan Anda telah aman tersimpan di database kami.</p>
+                <button onclick="switchTab('dashboard')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-lg">
+                    Lihat Hasil Real-time &#x1F4C8;
+                </button>
+            </div>
+        </section>
+
+        <!-- Section Hasil -->
+        <section id="sec-dashboard" class="fade-in hidden">
+            <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-3xl font-bold text-blue-900">Hasil Real-time Cloud</h2>
+                    <p class="text-slate-600 mt-1">Data sinkron otomatis dari server database.</p>
+                </div>
+                <div class="bg-blue-100 text-blue-800 px-4 py-2 rounded-full font-bold border border-blue-200">
+                    Total Suara Masuk: <span id="total-suara-display">0</span>
+                </div>
+            </div>
+
+            <div class="grid lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Grafik Perolehan Suara</h3>
+                    <div class="chart-container">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200 flex flex-col">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Distribusi Wilayah</h3>
+                    <div class="chart-container flex-grow">
+                        <canvas id="doughnutChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-3 bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Aspirasi Terkini</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Wilayah</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Pesan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="aspirasi-list" class="divide-y divide-slate-200">
+                                <!-- Diisi via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-slate-800 text-slate-400 py-6 text-center text-xs mt-auto">
+        <p>&copy; 2026 RIMNI Nurul Ittihad - Didukung oleh Firebase Cloud Firestore</p>
+    </footer>
+
+    <script>
+        const candidates_info = [
+            { id: '01', name: 'Ahmad Fauzi', motto: 'Mewujudkan Pemuda Masjid yang Inovatif' },
+            { id: '02', name: 'Budi Santoso', motto: 'Kolaborasi dalam Dakwah, Bersatu dalam Ukhuwah' },
+            { id: '03', name: 'Siti Aminah', motto: 'Masjid Ramah Remaja, Syiar Tanpa Batas' },
+            { id: '04', name: 'Muhammad Rifqi', motto: 'Berilmu, Beriman, Berbakti' }
+        ];
+
+        let barChartInstance = null;
+        let doughnutChartInstance = null;
+        let isFirebaseReady = false;
+
+        const checkFirebase = setInterval(() => {
+            if (window.firebaseDB && window.dbUtils && window.firebaseAuth.currentUser) {
+                isFirebaseReady = true;
+                clearInterval(checkFirebase);
+                document.getElementById('loading-overlay').classList.add('hidden');
+                listenToData();
+            }
+        }, 500);
+
+        function listenToData() {
+            const { firebaseDB, appId, dbUtils } = window;
+            const { onSnapshot, doc, collection } = dbUtils;
+
+            // Memastikan user sudah login sebelum melakukan query
+            if (!window.firebaseAuth.currentUser) return;
+
+            // Listen Votes
+            const votesDoc = doc(firebaseDB, 'artifacts', appId, 'public', 'data', 'votes_summary');
+            onSnapshot(votesDoc, (docSnap) => {
+                const data = docSnap.exists() ? docSnap.data() : {};
+                updateDashboard(data);
+            }, (err) => console.error("Listen Votes Err:", err));
+
+            // Listen Aspirations
+            const aspCol = collection(firebaseDB, 'artifacts', appId, 'public', 'data', 'aspirations');
+            onSnapshot(aspCol, (snap) => {
+                const asps = [];
+                snap.forEach(d => asps.push(d.data()));
+                renderAspirations(asps);
+            }, (err) => console.error("Listen Asp Err:", err));
+        }
+
+        function updateDashboard(data) {
+            const counts = { '01': 0, '02': 0, '03': 0, '04': 0 };
+            const regions = { 'RT 01': 0, 'RT 02': 0, 'RT 03': 0, 'RT 04': 0, 'Luar Lingkungan': 0 };
+            
+            if (data.candidates) {
+                Object.keys(data.candidates).forEach(key => {
+                    counts[key] = data.candidates[key];
+                });
+            }
+            if (data.regions) {
+                Object.keys(data.regions).forEach(key => {
+                    regions[key] = data.regions[key];
+                });
+            }
+
+            const total = Object.values(counts).reduce((a, b) => a + b, 0);
+            document.getElementById('total-suara-display').textContent = total;
+
+            updateCharts(counts, regions);
+        }
+
+        async function submitVote(e) {
+            e.preventDefault();
+            
+            if (!window.firebaseAuth.currentUser) {
+                alert("Sila tunggu sehingga sambungan database stabil.");
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+            btn.innerText = "Memproses...";
+
+            const { firebaseDB, appId, dbUtils } = window;
+            const { doc, setDoc, increment, collection, addDoc } = dbUtils;
+
+            const name = document.getElementById('nama').value;
+            const phone = document.getElementById('whatsapp').value;
+            const region = document.getElementById('domisili').value;
+            const candidateInput = document.querySelector('input[name="kandidat"]:checked');
+            
+            if (!candidateInput) {
+                alert("Sila pilih calon terlebih dahulu.");
+                btn.disabled = false;
+                btn.innerText = "Kirim Suara Ke Database";
+                return;
+            }
+
+            const candidate = candidateInput.value;
+            const note = document.getElementById('aspirasi').value;
+
+            try {
+                // Update Summary
+                const votesRef = doc(firebaseDB, 'artifacts', appId, 'public', 'data', 'votes_summary');
+                const updateObj = { candidates: {}, regions: {} };
+                updateObj.candidates[candidate] = increment(1);
+                updateObj.regions[region] = increment(1);
+                
+                await setDoc(votesRef, updateObj, { merge: true });
+
+                // Add Aspiration if any
+                if (note.trim()) {
+                    await addDoc(collection(firebaseDB, 'artifacts', appId, 'public', 'data', 'aspirations'), {
+                        wilayah: region,
+                        text: note,
+                        timestamp: Date.now()
+                    });
+                }
+
+                // Simpan log pemilih (private)
+                const userId = window.firebaseAuth.currentUser.uid;
+                await setDoc(doc(firebaseDB, 'artifacts', appId, 'users', userId, 'my_vote'), {
+                    submitted: true,
+                    nama: name,
+                    at: Date.now()
+                });
+
+                document.getElementById('form-container').classList.add('hidden');
+                document.getElementById('success-message').classList.remove('hidden');
+            } catch (err) {
+                console.error("Vote Error:", err);
+                alert("Gagal mengirim suara. Sila cuba lagi.");
+                btn.disabled = false;
+                btn.innerText = "Kirim Suara Ke Database";
+            }
+        }
+
+        function renderCandidates() {
+            const container = document.getElementById('kandidat-options');
+            container.innerHTML = candidates_info.map(c => `
+                <label class="cursor-pointer relative candidate-card block">
+                    <input type="radio" name="kandidat" value="${c.id}" class="sr-only radio-custom" required>
+                    <div class="border border-slate-300 rounded-lg p-4 flex items-center hover:bg-slate-50 transition-colors h-full bg-white">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center font-bold mr-4 shrink-0">
+                            ${c.id}
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800">${c.name}</h4>
+                            <p class="text-[10px] text-slate-500 italic mt-1">${c.motto}</p>
+                        </div>
+                    </div>
+                </label>
+            `).join('');
+        }
+
+        function renderAspirations(list) {
+            const sorted = list.sort((a,b) => b.timestamp - a.timestamp).slice(0, 5);
+            const container = document.getElementById('aspirasi-list');
+            container.innerHTML = sorted.map(a => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-600">${a.wilayah}</td>
+                    <td class="px-6 py-4 text-sm text-slate-700 italic">"${a.text}"</td>
+                </tr>
+            `).join('') || '<tr><td colspan="2" class="text-center py-4 text-slate-400">Belum ada aspirasi masuk</td></tr>';
+        }
+
+        function updateCharts(counts, regions) {
+            const chartConfig = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+            };
+
+            // Bar Chart
+            const barCtx = document.getElementById('barChart').getContext('2d');
+            const barData = candidates_info.map(c => counts[c.id]);
+            
+            if (barChartInstance) {
+                barChartInstance.data.datasets[0].data = barData;
+                barChartInstance.update();
+            } else {
+                barChartInstance = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: candidates_info.map(c => c.name),
+                        datasets: [{ label: 'Suara', data: barData, backgroundColor: '#059669' }]
+                    },
+                    options: chartConfig
+                });
+            }
+
+            // Doughnut Chart
+            const doghnutCtx = document.getElementById('doughnutChart').getContext('2d');
+            const regionLabels = Object.keys(regions);
+            const regionData = Object.values(regions);
+
+            if (doughnutChartInstance) {
+                doughnutChartInstance.data.labels = regionLabels;
+                doughnutChartInstance.data.datasets[0].data = regionData;
+                doughnutChartInstance.update();
+            } else {
+                doughnutChartInstance = new Chart(doghnutCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: regionLabels,
+                        datasets: [{ data: regionData, backgroundColor: ['#1e3a8a', '#3b82f6', '#10b981', '#f59e0b', '#94a3b8'] }]
+                    },
+                    options: chartConfig
+                });
+            }
+        }
+
+        function switchTab(tabId) {
+            ['informasi', 'bilik', 'dashboard'].forEach(id => {
+                document.getElementById(`sec-${id}`).classList.add('hidden');
+                document.getElementById(`tab-${id}`).classList.remove('nav-active');
+            });
+            document.getElementById(`sec-${tabId}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabId}`).classList.add('nav-active');
+        }
+
+        window.onload = () => {
+            renderCandidates();
+        };
+    </script>
+</body>
+</html>
